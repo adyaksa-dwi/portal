@@ -3602,20 +3602,22 @@ button {
    DARK MODE VARIABLES
    ========================================================================== */
 [data-theme="dark"] {
-  --bg-primary: #0f172a;
-  --bg-secondary: rgba(15, 23, 42, 0.6);
-  --bg-card: rgba(15, 23, 42, 0.5);
-  --bg-glass: rgba(15, 23, 42, 0.4);
-  --text-primary: #f1f5f9;
-  --text-secondary: #60a5fa;
-  --text-muted: #94a3b8;
-  --border-color: rgba(96, 165, 250, 0.2);
-  --border-glass: rgba(96, 165, 250, 0.15);
+  --bg-primary: #020617; /* Very dark slate for background */
+  --bg-secondary: rgba(15, 23, 42, 0.8); /* Dark slate */
+  --bg-card: rgba(30, 41, 59, 0.8); /* Lighter slate for cards so they stand out */
+  --bg-glass: rgba(30, 41, 59, 0.6);
+  --text-primary: #f8fafc; /* Almost white for good contrast on cards */
+  --text-secondary: #93c5fd; /* Light blue */
+  --text-muted: #94a3b8; /* Slate gray */
+  --border-color: rgba(148, 163, 184, 0.2);
+  --border-glass: rgba(255, 255, 255, 0.1);
   --primary: #3b82f6;
   --primary-hover: #60a5fa;
-  --gradient-mesh: radial-gradient(at 20% 80%, rgba(59,130,246,0.15) 0%, transparent 50%),
+  --accent: #1e3a8a; /* Dark blue for accent backgrounds instead of light yellow */
+  --accent-color: #fbbf24;
+  --gradient-mesh: radial-gradient(at 20% 80%, rgba(37,99,235,0.15) 0%, transparent 50%),
                    radial-gradient(at 80% 20%, rgba(251,191,36,0.1) 0%, transparent 50%),
-                   radial-gradient(at 50% 50%, rgba(37,99,235,0.08) 0%, transparent 60%);
+                   radial-gradient(at 50% 50%, rgba(59,130,246,0.08) 0%, transparent 60%);
 }
 
 [data-theme="dark"] .app-header {
