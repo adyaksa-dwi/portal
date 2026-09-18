@@ -21,6 +21,11 @@
   <!-- Navigation Header -->
   <header class="app-header">
     <div class="header-container">
+      <!-- Hamburger Menu for Mobile -->
+      <button class="mobile-menu-toggle" id="mobile-menu-toggle">
+        <i data-lucide="menu"></i>
+      </button>
+
       <!-- Logo Block -->
       <a href="#home" class="brand-logo">
         <div class="logo-icon">
@@ -50,6 +55,11 @@
           <i data-lucide="search" class="search-icon"></i>
           <input type="text" id="global-search" placeholder="Cari info di portal...">
         </div>
+
+        <!-- Theme Toggle -->
+        <button class="theme-toggle" id="theme-toggle" title="Toggle Dark Mode">
+          <i data-lucide="moon"></i>
+        </button>
 
         <!-- Admin Auth Action Trigger / User Profile Widget -->
         <div id="header-auth-container">

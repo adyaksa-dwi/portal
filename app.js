@@ -348,7 +348,7 @@ function updateHeaderAuthWidget() {
   if (STATE.currentUser) {
     const isAdmin = STATE.currentUser.role === 'admin';
     container.innerHTML = `
-      <div class="user-profile">
+      <div class="user-profile user-dropdown-container" onclick="toggleUserDropdown(event)">
         <div class="avatar-wrapper">
           <img src="${STATE.currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100'}" alt="${STATE.currentUser.name}">
           <span class="status-indicator"></span>
@@ -357,14 +357,19 @@ function updateHeaderAuthWidget() {
           <span class="user-name">${STATE.currentUser.name}</span>
           <span class="user-role">${isAdmin ? 'Administrator CMS' : 'Karyawan'}</span>
         </div>
-        ${isAdmin ? `
-        <a href="#admin" class="btn-action-sm" style="margin-left: 1rem; color: var(--primary); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(59, 130, 246, 0.1);" title="Panel Admin">
-          <i data-lucide="settings"></i>
-        </a>
-        ` : ''}
-        <button class="btn-action-sm delete" style="margin-left: 0.5rem; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%;" onclick="logoutUser()" title="Keluar">
-          <i data-lucide="log-out"></i>
-        </button>
+        <div class="user-dropdown-menu" id="user-dropdown">
+          <div class="user-dropdown-item" onclick="window.location.hash='#profile'">
+            <i data-lucide="user"></i> Profil Saya
+          </div>
+          ${isAdmin ? `
+          <div class="user-dropdown-item" onclick="window.location.hash='#admin'">
+            <i data-lucide="settings"></i> Panel Admin
+          </div>
+          ` : ''}
+          <div class="user-dropdown-item" style="color: var(--danger);" onclick="logoutUser()">
+            <i data-lucide="log-out"></i> Keluar
+          </div>
+        </div>
       </div>
     `;
   } else {
@@ -377,6 +382,23 @@ function updateHeaderAuthWidget() {
   }
   lucide.createIcons();
 }
+
+function toggleUserDropdown(event) {
+  const dropdown = document.getElementById('user-dropdown');
+  if (dropdown) {
+    dropdown.classList.toggle('show');
+    event.stopPropagation();
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('user-dropdown');
+  if (dropdown && dropdown.classList.contains('show')) {
+    dropdown.classList.remove('show');
+  }
+});
+
 
 function renderLogin() {
   const app = document.getElementById('app-viewport');
@@ -562,11 +584,14 @@ document.getElementById('global-modal').addEventListener('click', (e) => {
 let currentNewsTab = 'Semua';
 let galleryTypeFilter = 'Semua';
 let galleryCategoryFilter = 'Semua Kategori';
-let galleryYearFilter = '2023';
+let galleryYearFilter = 'Semua Tahun'; // FIXED: was '2023'
 let gallerySortOrder = 'date-desc';
+let galleryCurrentPage = 1;
+const ITEMS_PER_PAGE = 6;
 
-let magazineYearFilter = '2024';
+let magazineYearFilter = 'Semua Tahun'; // FIXED: was '2024'
 let magazineCategoryFilter = 'Semua Kategori';
+let magazineCurrentPage = 1;
 
 /**
  * 1. HOME VIEW (BERANDA)
@@ -645,7 +670,6 @@ function renderHome() {
                     <span>Baca Berita</span>
                     <i data-lucide="chevron-right"></i>
                   </a>
-                  <a href="#news-detail/${item.id}" class="view-btn">Lihat</a>
                 </div>
               </div>
             </div>
@@ -738,7 +762,6 @@ function renderNewsIndex() {
                   <span>Baca Berita</span>
                   <i data-lucide="chevron-right"></i>
                 </a>
-                <a href="#news-detail/${item.id}" class="view-btn">Lihat</a>
               </div>
             </div>
           </div>
@@ -1085,6 +1108,12 @@ function renderGallery() {
     filteredEvents = filteredEvents.filter(event => event.year === galleryYearFilter);
   }
 
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE) || 1;
+  if (galleryCurrentPage > totalPages) galleryCurrentPage = totalPages;
+  const startIndex = (galleryCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedEvents = filteredEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   const uniqueCategories = ['Semua Kategori', ...new Set(STATE.events.map(event => event.category))];
   const uniqueYears = ['Semua Tahun', ...new Set(STATE.events.map(event => event.year))];
 
@@ -1123,7 +1152,7 @@ function renderGallery() {
       </div>
 
       <!-- Event Cards Grid -->
-      ${filteredEvents.length === 0 ? `
+      ${paginatedEvents.length === 0 ? `
         <div class="text-center" style="padding: 4rem 0; color: var(--text-secondary);">
           <i data-lucide="folder-off" style="width: 48px; height: 48px; margin-bottom: 1rem; color: var(--text-muted);"></i>
           <h3>Album Event Tidak Ditemukan</h3>
@@ -1131,7 +1160,7 @@ function renderGallery() {
         </div>
       ` : `
         <div class="events-grid">
-          ${filteredEvents.map(event => `
+          ${paginatedEvents.map(event => `
             <div class="event-card" data-event-id="${event.id}">
               <div class="event-cover-box">
                 <img src="${event.coverImage}" alt="${event.title}">
@@ -1160,11 +1189,11 @@ function renderGallery() {
 
       <!-- Gallery Pagination -->
       <div class="pagination-container">
-        <span>Menampilkan <strong>${filteredEvents.length}</strong> dari <strong>${filteredEvents.length}</strong> album event</span>
+        <span>Menampilkan <strong>${startIndex + 1}-${Math.min(startIndex + ITEMS_PER_PAGE, filteredEvents.length)}</strong> dari <strong>${filteredEvents.length}</strong> album event</span>
         <div class="pagination-controls">
-          <button class="btn-chevron" disabled><i data-lucide="chevron-left"></i></button>
-          <button class="page-btn active">1</button>
-          <button class="btn-chevron" disabled><i data-lucide="chevron-right"></i></button>
+          <button class="btn-chevron" ${galleryCurrentPage === 1 ? 'disabled' : ''} onclick="window.changeGalleryPage(-1)"><i data-lucide="chevron-left"></i></button>
+          <button class="page-btn active">${galleryCurrentPage}</button>
+          <button class="btn-chevron" ${galleryCurrentPage === totalPages ? 'disabled' : ''} onclick="window.changeGalleryPage(1)"><i data-lucide="chevron-right"></i></button>
         </div>
       </div>
     </div>
@@ -1172,6 +1201,11 @@ function renderGallery() {
 
   app.innerHTML = html;
   lucide.createIcons();
+
+  window.changeGalleryPage = (delta) => {
+    galleryCurrentPage += delta;
+    renderGallery();
+  };
 
   // Attach dropdown change events
   const catSelect = document.getElementById('gallery-category-select');
@@ -1381,6 +1415,12 @@ function renderMagazine() {
     filteredMags = filteredMags.filter(m => m.category === magazineCategoryFilter);
   }
 
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredMags.length / ITEMS_PER_PAGE) || 1;
+  if (magazineCurrentPage > totalPages) magazineCurrentPage = totalPages;
+  const startIndex = (magazineCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedMags = filteredMags.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   const uniqueYears = ['Semua Tahun', ...new Set(STATE.magazines.map(m => m.year))];
   const uniqueCategories = ['Semua Kategori', ...new Set(STATE.magazines.map(m => m.category))];
 
@@ -1426,7 +1466,7 @@ function renderMagazine() {
       </div>
 
       <!-- Magazine Cards Grid -->
-      ${filteredMags.length === 0 ? `
+      ${paginatedMags.length === 0 ? `
         <div class="text-center" style="padding: 4rem 0; color: var(--text-secondary);">
           <i data-lucide="book-open" style="width: 48px; height: 48px; margin-bottom: 1rem; color: var(--text-muted);"></i>
           <h3>Edisi Tidak Ditemukan</h3>
@@ -1434,7 +1474,7 @@ function renderMagazine() {
         </div>
       ` : `
         <div class="magazines-grid">
-          ${filteredMags.map(mag => `
+          ${paginatedMags.map(mag => `
             <div class="magazine-card">
               <div class="mag-cover-box">
                 <img src="${mag.coverImage}" alt="${mag.title}" onerror="this.src='https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=400'">
@@ -1465,12 +1505,12 @@ function renderMagazine() {
 
       <!-- Pagination -->
       <div class="pagination-container">
-        <span>Menampilkan <strong>${filteredMags.length}</strong> dari <strong>${filteredMags.length}</strong> edisi</span>
+        <span>Menampilkan <strong>${startIndex + 1}-${Math.min(startIndex + ITEMS_PER_PAGE, filteredMags.length)}</strong> dari <strong>${filteredMags.length}</strong> edisi</span>
         
         <div class="pagination-controls">
-          <button class="btn-chevron" disabled><i data-lucide="chevron-left"></i></button>
-          <button class="page-btn active">1</button>
-          <button class="btn-chevron" disabled><i data-lucide="chevron-right"></i></button>
+          <button class="btn-chevron" ${magazineCurrentPage === 1 ? 'disabled' : ''} onclick="window.changeMagazinePage(-1)"><i data-lucide="chevron-left"></i></button>
+          <button class="page-btn active">${magazineCurrentPage}</button>
+          <button class="btn-chevron" ${magazineCurrentPage === totalPages ? 'disabled' : ''} onclick="window.changeMagazinePage(1)"><i data-lucide="chevron-right"></i></button>
         </div>
       </div>
 
@@ -1479,6 +1519,11 @@ function renderMagazine() {
 
   app.innerHTML = html;
   lucide.createIcons();
+
+  window.changeMagazinePage = (delta) => {
+    magazineCurrentPage += delta;
+    renderMagazine();
+  };
 
   // Attach filter change listeners
   const yrSelect = document.getElementById('mag-year-select');
@@ -1822,13 +1867,36 @@ function renderAdminOverviewTab(container, totalNews, totalEvents, totalPhotos, 
       </div>
     </div>
 
+    <!-- Chart Section -->
+    <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2.5rem;">
+      <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-primary);">Distribusi Konten Portal</h3>
+      <div class="admin-chart-container">
+        <div class="admin-chart-bar-group">
+          <div class="admin-chart-bar" style="height: ${Math.min(100, Math.max(5, (totalNews / 20) * 100))}%;"></div>
+          <div class="admin-chart-label">Berita<br>(${totalNews})</div>
+        </div>
+        <div class="admin-chart-bar-group">
+          <div class="admin-chart-bar" style="height: ${Math.min(100, Math.max(5, (totalEvents / 20) * 100))}%; background-color: #16a34a;"></div>
+          <div class="admin-chart-label">Event<br>(${totalEvents})</div>
+        </div>
+        <div class="admin-chart-bar-group">
+          <div class="admin-chart-bar" style="height: ${Math.min(100, Math.max(5, (totalPhotos / 50) * 100))}%; background-color: #d97706;"></div>
+          <div class="admin-chart-label">Media<br>(${totalPhotos})</div>
+        </div>
+        <div class="admin-chart-bar-group">
+          <div class="admin-chart-bar" style="height: ${Math.min(100, Math.max(5, (totalMags / 20) * 100))}%; background-color: #9333ea;"></div>
+          <div class="admin-chart-label">Majalah<br>(${totalMags})</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Actions Panel -->
     <div style="background-color: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2.5rem;">
       <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-primary);">Aksi Cepat Pengelolaan</h3>
       <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem;">Pilih jenis konten yang ingin Anda tambahkan atau kelola di dalam portal:</p>
       
       <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <button class="btn-dark" onclick="openNewsFormModal()">
+        <button class="btn-dark" onclick="window.location.hash='#admin/new-news'">
           <i data-lucide="plus"></i> Tambah Berita Baru
         </button>
         <button class="btn-dark" onclick="openEventFormModal()">
@@ -2298,8 +2366,8 @@ function renderAdminFullPageEditor(newsId = null) {
           <h2 style="margin: 0;">${isEdit ? 'Edit Artikel' : 'Tulis Berita Baru'}</h2>
         </div>
         <div class="fp-header-right">
-          <button type="button" class="btn-dark" onclick="document.getElementById('news-form-submit-btn').click()">
-            <i data-lucide="save"></i> ${isEdit ? 'Simpan Perubahan' : 'Publikasikan'}
+          <button type="button" class="btn-dark" id="visible-news-submit-btn" onclick="document.getElementById('news-form-submit-btn').click()">
+            <i data-lucide="save"></i> <span>${isEdit ? 'Simpan Perubahan' : 'Publikasikan'}</span>
           </button>
         </div>
       </div>
@@ -2399,64 +2467,72 @@ function renderAdminFullPageEditor(newsId = null) {
 }
 
 window.handleNewsFormSubmit = (newsId) => {
-  const title = document.getElementById('news-title-input').value.trim();
-  const category = document.getElementById('news-category-select').value;
-  const readTime = document.getElementById('news-readtime-input').value.trim();
-  const author = document.getElementById('news-author-input').value.trim();
-  const authorRole = document.getElementById('news-role-input').value.trim();
-  const image = document.getElementById('news-image-input').value.trim();
-  let contentRaw = document.getElementById('news-content-input').value.trim();
+  const visibleBtn = document.getElementById('visible-news-submit-btn');
+  if (visibleBtn) {
+    visibleBtn.innerHTML = `<i data-lucide="loader"></i> <span>Menyimpan...</span>`;
+    lucide.createIcons();
+    visibleBtn.style.opacity = '0.7';
+    visibleBtn.disabled = true;
+  }
 
-  let contentFormatted = contentRaw;
-  if (contentRaw.length > 0) {
-    // Convert newlines back to paragraph blocks if not already HTML
-    if (!contentRaw.startsWith('<p>')) {
-      contentFormatted = contentRaw.split('\n\n').map(p => `<p>${p}</p>`).join('');
+  setTimeout(() => {
+    const title = document.getElementById('news-title-input').value.trim();
+    const category = document.getElementById('news-category-select').value;
+    const readTime = document.getElementById('news-readtime-input').value.trim();
+    const author = document.getElementById('news-author-input').value.trim();
+    const authorRole = document.getElementById('news-role-input').value.trim();
+    const image = document.getElementById('news-image-input').value.trim();
+    let contentRaw = document.getElementById('news-content-input').value.trim();
+
+    let contentFormatted = contentRaw;
+    if (contentRaw.length > 0) {
+      if (!contentRaw.startsWith('<p>')) {
+        contentFormatted = contentRaw.split('\n\n').map(p => `<p>${p}</p>`).join('');
+      }
     }
-  }
 
-  // If visual blocks exist, generate content fallback from blocks
-  if (currentWorkingBlocks && currentWorkingBlocks.length > 0) {
-    contentFormatted = renderBlocksToHTML(currentWorkingBlocks);
-  }
-
-  if (newsId) {
-    const existing = STATE.news.find(n => n.id === newsId);
-    if (existing) {
-      existing.title = title;
-      existing.category = category;
-      existing.readTime = readTime;
-      existing.author = author;
-      existing.authorRole = authorRole;
-      existing.image = image;
-      existing.content = contentFormatted;
-      existing.blocks = JSON.parse(JSON.stringify(currentWorkingBlocks));
+    if (currentWorkingBlocks && currentWorkingBlocks.length > 0) {
+      contentFormatted = renderBlocksToHTML(currentWorkingBlocks);
     }
-    showToast('Berita berhasil diperbarui dengan susunan Visual Canvas!');
-  } else {
-    const newId = `news-${Date.now()}`;
-    const newArticle = {
-      id: newId,
-      title: title,
-      author: author,
-      authorRole: authorRole,
-      authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=100',
-      date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-      category: category,
-      readTime: readTime,
-      image: image,
-      content: contentFormatted,
-      blocks: JSON.parse(JSON.stringify(currentWorkingBlocks)),
-      attachments: [],
-      comments: [],
-      relatedNewsIds: []
-    };
-    STATE.news.unshift(newArticle);
-    showToast('Berita baru dengan Visual Canvas berhasil dipublikasikan!');
-  }
 
-  saveStateToStorage();
-  window.location.hash = '#admin';
+    if (newsId) {
+      const existing = STATE.news.find(n => n.id === newsId);
+      if (existing) {
+        existing.title = title;
+        existing.category = category;
+        existing.readTime = readTime;
+        existing.author = author;
+        existing.authorRole = authorRole;
+        existing.image = image;
+        existing.content = contentFormatted;
+        existing.blocks = JSON.parse(JSON.stringify(currentWorkingBlocks));
+      }
+      showToast('Berita berhasil diperbarui dengan susunan Visual Canvas!');
+    } else {
+      const newId = `news-${Date.now()}`;
+      const newArticle = {
+        id: newId,
+        title: title,
+        author: author,
+        authorRole: authorRole,
+        authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=100',
+        date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        category: category,
+        readTime: readTime,
+        image: image,
+        content: contentFormatted,
+        blocks: JSON.parse(JSON.stringify(currentWorkingBlocks)),
+        attachments: [],
+        comments: [],
+        relatedNewsIds: []
+      };
+      STATE.news.unshift(newArticle);
+      showToast('Berita baru dengan Visual Canvas berhasil dipublikasikan!');
+    }
+
+    saveStateToStorage();
+    window.location.hash = '#admin';
+  }, 600);
 };
 
 function deleteNewsItem(newsId) {
@@ -2577,7 +2653,9 @@ function openEventFormModal(eventId = null) {
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" onclick="closeModal()">Batal</button>
-        <button type="submit" class="btn-dark">${isEdit ? 'Simpan Album' : 'Buat Album Baru'}</button>
+        <button type="submit" class="btn-dark" id="event-submit-btn">
+          <i data-lucide="save"></i> <span>${isEdit ? 'Simpan Album' : 'Buat Album Baru'}</span>
+        </button>
       </div>
     </form>
   `;
@@ -2586,12 +2664,21 @@ function openEventFormModal(eventId = null) {
 }
 
 window.handleEventFormSubmit = (eventId) => {
-  const title = document.getElementById('event-title-input').value.trim();
-  const category = document.getElementById('event-category-select').value;
-  const date = document.getElementById('event-date-input').value.trim();
-  const year = document.getElementById('event-year-input').value;
-  const coverImage = document.getElementById('event-cover-input').value.trim();
-  const description = document.getElementById('event-desc-input').value.trim();
+  const submitBtn = document.getElementById('event-submit-btn');
+  if (submitBtn) {
+    submitBtn.innerHTML = `<i data-lucide="loader"></i> <span>Menyimpan...</span>`;
+    lucide.createIcons();
+    submitBtn.style.opacity = '0.7';
+    submitBtn.disabled = true;
+  }
+
+  setTimeout(() => {
+    const title = document.getElementById('event-title-input').value.trim();
+    const category = document.getElementById('event-category-select').value;
+    const date = document.getElementById('event-date-input').value.trim();
+    const year = document.getElementById('event-year-input').value;
+    const coverImage = document.getElementById('event-cover-input').value.trim();
+    const description = document.getElementById('event-desc-input').value.trim();
 
   if (eventId) {
     const existing = STATE.events.find(e => e.id === eventId);
@@ -2620,9 +2707,10 @@ window.handleEventFormSubmit = (eventId) => {
     showToast('Album event baru berhasil dibuat! Anda kini dapat menambahkan foto/video.');
   }
 
-  saveStateToStorage();
-  closeModal();
-  renderAdmin();
+    saveStateToStorage();
+    closeModal();
+    renderAdmin();
+  }, 600); // Simulate network delay
 };
 
 function deleteEventItem(eventId) {
@@ -2855,7 +2943,9 @@ function openMagazineFormModal(magId = null) {
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" onclick="closeModal()">Batal</button>
-        <button type="submit" class="btn-dark">${isEdit ? 'Simpan Majalah' : 'Unggah Edisi Majalah'}</button>
+        <button type="submit" class="btn-dark" id="mag-submit-btn">
+          <i data-lucide="save"></i> <span>${isEdit ? 'Simpan Majalah' : 'Unggah Edisi Majalah'}</span>
+        </button>
       </div>
     </form>
   `;
@@ -2864,12 +2954,21 @@ function openMagazineFormModal(magId = null) {
 }
 
 window.handleMagazineFormSubmit = (magId) => {
-  const title = document.getElementById('mag-title-input').value.trim();
-  const issueNumber = document.getElementById('mag-issue-input').value.trim();
-  const category = document.getElementById('mag-category-select').value;
-  const month = document.getElementById('mag-month-select').value;
-  const year = document.getElementById('mag-year-select').value;
-  const coverImage = document.getElementById('mag-cover-input').value.trim();
+  const submitBtn = document.getElementById('mag-submit-btn');
+  if (submitBtn) {
+    submitBtn.innerHTML = `<i data-lucide="loader"></i> <span>Menyimpan...</span>`;
+    lucide.createIcons();
+    submitBtn.style.opacity = '0.7';
+    submitBtn.disabled = true;
+  }
+
+  setTimeout(() => {
+    const title = document.getElementById('mag-title-input').value.trim();
+    const issueNumber = document.getElementById('mag-issue-input').value.trim();
+    const category = document.getElementById('mag-category-select').value;
+    const month = document.getElementById('mag-month-select').value;
+    const year = document.getElementById('mag-year-select').value;
+    const coverImage = document.getElementById('mag-cover-input').value.trim();
 
   if (magId) {
     const existing = STATE.magazines.find(m => m.id === magId);
@@ -2897,9 +2996,10 @@ window.handleMagazineFormSubmit = (magId) => {
     showToast('Edisi majalah baru berhasil ditambahkan!');
   }
 
-  saveStateToStorage();
-  closeModal();
-  renderAdmin();
+    saveStateToStorage();
+    closeModal();
+    renderAdmin();
+  }, 600); // Simulate network delay
 };
 
 function deleteMagazineItem(magId) {
@@ -2959,6 +3059,14 @@ function router() {
     return;
   }
 
+  // Add fade-in transition
+  const viewport = document.getElementById('app-viewport');
+  if (viewport) {
+    viewport.classList.remove('fade-in');
+    void viewport.offsetWidth; // trigger reflow
+    viewport.classList.add('fade-in');
+  }
+
   // Router matching
   if (hash === '#login') {
     renderLogin();
@@ -2968,6 +3076,9 @@ function router() {
     renderAdmin();
   } else if (hash === '#news') {
     renderNewsIndex();
+  } else if (hash.startsWith('#search')) {
+    const params = new URLSearchParams(hash.split('?')[1]);
+    renderSearch(params.get('q') || '');
   } else if (hash.startsWith('#news-detail/')) {
     const newsId = hash.replace('#news-detail/', '');
     renderNewsDetail(newsId);
@@ -2983,6 +3094,8 @@ function router() {
   } else if (hash.startsWith('#admin/edit-news/')) {
     const newsId = hash.replace('#admin/edit-news/', '');
     renderAdminFullPageEditor(newsId);
+  } else if (hash === '#profile') {
+    renderProfile();
   } else {
     // Fallback to home page
     window.location.hash = '#home';
@@ -3001,12 +3114,49 @@ window.addEventListener('DOMContentLoaded', () => {
   updateHeaderAuthWidget();
   router();
 
+  // Dark Mode Initialization
+  const themeToggle = document.getElementById('theme-toggle');
+  const isDarkMode = localStorage.getItem('portal_theme') === 'dark';
+  if (isDarkMode) document.documentElement.setAttribute('data-theme', 'dark');
+  
+  if (themeToggle) {
+    themeToggle.onclick = () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      if (currentTheme === 'dark') {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('portal_theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('portal_theme', 'dark');
+      }
+    };
+  }
+
+  // Mobile Menu Toggle
+  const mobileToggle = document.getElementById('mobile-menu-toggle');
+  const mainNav = document.querySelector('.main-nav');
+  if (mobileToggle && mainNav) {
+    mobileToggle.onclick = (e) => {
+      mainNav.classList.toggle('show-mobile');
+      e.stopPropagation();
+    };
+    // Close mobile menu on click outside or on link click
+    document.addEventListener('click', (e) => {
+      if (!mainNav.contains(e.target) && !mobileToggle.contains(e.target)) {
+        mainNav.classList.remove('show-mobile');
+      }
+    });
+    mainNav.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => mainNav.classList.remove('show-mobile'));
+    });
+  }
+
   // Search input interactivity
   const globSearch = document.getElementById('global-search');
   if (globSearch) {
     globSearch.onkeypress = (e) => {
       if (e.key === 'Enter') {
-        const query = globSearch.value.trim().toLowerCase();
+        const query = globSearch.value.trim();
         if (query) {
           globSearch.value = '';
           handleGlobalSearch(query);
@@ -3043,49 +3193,236 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * PROFILE PAGE VIEW
+ */
+function renderProfile() {
+  const app = document.getElementById('app-viewport');
+  if (!STATE.currentUser) {
+    window.location.hash = '#login';
+    return;
+  }
+
+  const user = STATE.currentUser;
+  const isAdmin = user.role === 'admin';
+  const totalComments = STATE.news.reduce((sum, n) => sum + (n.comments ? n.comments.length : 0), 0);
+  const userComments = STATE.news.reduce((sum, n) => {
+    return sum + (n.comments ? n.comments.filter(c => c.author === user.name).length : 0);
+  }, 0);
+
+  app.innerHTML = `
+    <div class="profile-page">
+      <!-- Profile Header Card -->
+      <div class="profile-header-card">
+        <img src="${user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}" alt="${user.name}" class="profile-avatar-large">
+        <h1 class="profile-name-large">${user.name}</h1>
+        <div class="profile-role-badge">
+          <i data-lucide="${isAdmin ? 'shield-check' : 'briefcase'}"></i>
+          ${isAdmin ? 'Administrator CMS' : 'Karyawan'}
+        </div>
+        <div class="profile-stats-row">
+          <div class="profile-stat">
+            <div class="profile-stat-value">${userComments}</div>
+            <div class="profile-stat-label">Komentar</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-value">${STATE.news.length}</div>
+            <div class="profile-stat-label">Berita Tersedia</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-value">${STATE.events.length}</div>
+            <div class="profile-stat-label">Album Event</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Cards Grid -->
+      <div class="profile-info-grid">
+        <div class="profile-info-card">
+          <h3><i data-lucide="user"></i> Informasi Pribadi</h3>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Nama Lengkap</span>
+            <span class="profile-info-value">${user.name}</span>
+          </div>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Username</span>
+            <span class="profile-info-value">${user.username || (isAdmin ? 'admin' : 'user')}</span>
+          </div>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Peran</span>
+            <span class="profile-info-value">${isAdmin ? 'Administrator' : 'Karyawan'}</span>
+          </div>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Status</span>
+            <span class="profile-info-value" style="color: var(--success);">● Online</span>
+          </div>
+        </div>
+
+        <div class="profile-info-card">
+          <h3><i data-lucide="building-2"></i> Informasi Kantor</h3>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Departemen</span>
+            <span class="profile-info-value">${isAdmin ? 'IT & Komunikasi' : 'Operasional'}</span>
+          </div>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Jabatan</span>
+            <span class="profile-info-value">${isAdmin ? 'Admin Portal' : 'Staff'}</span>
+          </div>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Lokasi</span>
+            <span class="profile-info-value">Kantor Pusat</span>
+          </div>
+          <div class="profile-info-row">
+            <span class="profile-info-label">Bergabung Sejak</span>
+            <span class="profile-info-value">Januari 2023</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Card -->
+      <div class="profile-activity-card">
+        <h3><i data-lucide="activity"></i> Aktivitas Terkini</h3>
+        <div class="activity-item">
+          <div class="activity-icon"><i data-lucide="log-in"></i></div>
+          <span class="activity-text">Masuk ke Portal Internal</span>
+          <span class="activity-time">Baru saja</span>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon"><i data-lucide="eye"></i></div>
+          <span class="activity-text">Membaca berita: "${STATE.news[0]?.title || 'Berita Terbaru'}"</span>
+          <span class="activity-time">15 menit lalu</span>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon"><i data-lucide="image"></i></div>
+          <span class="activity-text">Melihat galeri: "${STATE.events[0]?.title || 'Event Terbaru'}"</span>
+          <span class="activity-time">1 jam lalu</span>
+        </div>
+        ${isAdmin ? `
+        <div class="activity-item">
+          <div class="activity-icon"><i data-lucide="settings"></i></div>
+          <span class="activity-text">Mengakses Panel Admin CMS</span>
+          <span class="activity-time">2 jam lalu</span>
+        </div>
+        ` : ''}
+      </div>
+
+      <!-- Actions -->
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <button class="btn-dark" onclick="logoutUser()" style="border-radius: var(--radius-full);">
+          <i data-lucide="log-out"></i> Keluar dari Akun
+        </button>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+/**
  * Handles global search queries and redirects to closest matching result or views details
  */
 function handleGlobalSearch(query) {
-  // 1. Search News first
-  const foundNews = STATE.news.find(n => 
-    n.title.toLowerCase().includes(query) || 
-    n.content.toLowerCase().includes(query) || 
-    n.category.toLowerCase().includes(query)
+  window.location.hash = `#search?q=${encodeURIComponent(query)}`;
+}
+
+/**
+ * 6. SEARCH RESULTS VIEW
+ */
+function renderSearch(query) {
+  const app = document.getElementById('app-viewport');
+  const q = query.toLowerCase();
+
+  const foundNews = STATE.news.filter(n => 
+    n.title.toLowerCase().includes(q) || 
+    n.content.toLowerCase().includes(q) || 
+    n.category.toLowerCase().includes(q)
   );
 
-  if (foundNews) {
-    showToast(`Ditemukan artikel berita: "${foundNews.title}"`);
-    window.location.hash = `#news-detail/${foundNews.id}`;
-    return;
-  }
-
-  // 2. Search magazines
-  const foundMag = STATE.magazines.find(m => 
-    m.title.toLowerCase().includes(query) || 
-    m.category.toLowerCase().includes(query)
+  const foundMag = STATE.magazines.filter(m => 
+    m.title.toLowerCase().includes(q) || 
+    m.category.toLowerCase().includes(q)
   );
 
-  if (foundMag) {
-    showToast(`Ditemukan majalah: "${foundMag.title} - ${foundMag.issueNumber}"`);
-    window.location.hash = '#magazine';
-    magazineCategoryFilter = 'Semua Kategori';
-    magazineYearFilter = 'Semua Tahun';
-    renderMagazine();
-    return;
-  }
-
-  // 3. Search gallery events
-  const foundEvent = STATE.events.find(e => 
-    e.title.toLowerCase().includes(query) || 
-    e.category.toLowerCase().includes(query) ||
-    e.photos.some(p => p.title.toLowerCase().includes(query))
+  const foundEvent = STATE.events.filter(e => 
+    e.title.toLowerCase().includes(q) || 
+    e.category.toLowerCase().includes(q) ||
+    e.photos.some(p => p.title.toLowerCase().includes(q))
   );
 
-  if (foundEvent) {
-    showToast(`Ditemukan album event: "${foundEvent.title}"`);
-    window.location.hash = `#gallery-event/${foundEvent.id}`;
-    return;
-  }
+  const totalResults = foundNews.length + foundMag.length + foundEvent.length;
 
-  showToast(`Pencarian untuk "${query}" tidak menemukan hasil cocok.`, 'danger');
+  app.innerHTML = `
+    <div class="container">
+      <div class="gallery-intro" style="margin-bottom: 2rem;">
+        <h1>Hasil Pencarian</h1>
+        <p>Menampilkan hasil untuk kata kunci: <strong>"${query}"</strong> (${totalResults} hasil)</p>
+      </div>
+
+      ${totalResults === 0 ? `
+        <div class="text-center" style="padding: 4rem 0;">
+          <i data-lucide="search-x" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 1rem;"></i>
+          <h3>Pencarian Tidak Ditemukan</h3>
+          <p style="color: var(--text-secondary);">Coba gunakan kata kunci lain yang lebih umum.</p>
+        </div>
+      ` : ''}
+
+      ${foundNews.length > 0 ? `
+        <h3 class="section-title" style="margin-bottom: 1.5rem;">Berita (${foundNews.length})</h3>
+        <div class="news-grid" style="margin-bottom: 3rem;">
+          ${foundNews.map(item => `
+            <div class="news-card">
+              <div class="card-img-wrapper">
+                <img src="${item.image}" alt="${item.title}" class="card-img">
+                <span class="card-tag">${item.category}</span>
+              </div>
+              <div class="card-body">
+                <h3 class="card-title"><a href="#news-detail/${item.id}">${item.title}</a></h3>
+                <div class="card-footer">
+                  <a href="#news-detail/${item.id}" class="read-more-link">Baca <i data-lucide="chevron-right"></i></a>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      ${foundEvent.length > 0 ? `
+        <h3 class="section-title" style="margin-bottom: 1.5rem;">Album Event (${foundEvent.length})</h3>
+        <div class="events-grid" style="margin-bottom: 3rem;">
+          ${foundEvent.map(event => `
+            <div class="event-card" onclick="window.location.hash='#gallery-event/${event.id}'">
+              <div class="event-cover-box">
+                <img src="${event.coverImage}" alt="${event.title}">
+              </div>
+              <div class="event-body">
+                <h3 class="event-title">${event.title}</h3>
+                <p class="event-desc">${event.category}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      ${foundMag.length > 0 ? `
+        <h3 class="section-title" style="margin-bottom: 1.5rem;">Majalah (${foundMag.length})</h3>
+        <div class="magazines-grid" style="margin-bottom: 3rem;">
+          ${foundMag.map(mag => `
+            <div class="magazine-card">
+              <div class="mag-cover-box">
+                <img src="${mag.coverImage}" alt="${mag.title}">
+              </div>
+              <div class="mag-body">
+                <h3 class="mag-card-title">${mag.title}</h3>
+                <p class="mag-card-edition">${mag.issueNumber}</p>
+                <div class="mag-card-actions">
+                  <button class="btn-card-outline" onclick="openMagazineViewer({title: '${mag.title}', issueNumber: '${mag.issueNumber}', month: '${mag.month}', year: '${mag.year}'})">
+                    <i data-lucide="eye"></i> Lihat
+                  </button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  lucide.createIcons();
 }
